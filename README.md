@@ -618,7 +618,9 @@ SELECT SUM(amount) AS late_fee_total_amount, currency, YEAR(recorded_at) as year
 |                 5619.97 | SAR        |   2021 |
 +-------------------------+------------+--------+
 ```
+
 Stopping containers and cleaning
 
-```docker-compose down 
+```
+docker-compose down 
 ```
