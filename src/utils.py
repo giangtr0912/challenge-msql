@@ -1,13 +1,7 @@
 #!/usr/bin/env python3
 
-
-import sys
-
-import time
-import getopt
-
-import MySQLdb
 import mysql.connector
+import MySQLdb
 from mysql.connector import errorcode
 
 SOURCE_DB = 'tamara'
@@ -19,7 +13,6 @@ SOURCE_TABLE = 'order_events'
 TABLE_NAME_1 = 'order_item_main_infos'
 TABLE_NAME_2 = 'order_late_fee_infos'
 TABLE_NAME_3 = 'order_merchant_infos'
-
 
 # docker database config init
 docker_db_config_init = {
@@ -62,7 +55,13 @@ test_db_config = {
     'database': '{}'.format(TEST_DB)
 }
 
-DB_config = {'docker_init': docker_db_config_init, 'init': target_db_config_init, 'test': test_db_config, 'staging': target_db_staging_config, 'production': target_db_production_config}
+DB_config = {
+    'docker_init': docker_db_config_init,
+    'init': target_db_config_init,
+    'test': test_db_config,
+    'staging': target_db_staging_config,
+    'production': target_db_production_config
+}
 
 
 def db_setup_init(queries, config=DB_config):
@@ -91,7 +90,7 @@ def db_setup_init(queries, config=DB_config):
         # close the database connection
         cursor.close()
         cnx.close()
-        print ("Databases initialization successful")
+        print("Databases initialization successful")
     except mysql.connector.Error as err:
         if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
             print("User authorization error")

@@ -1,15 +1,20 @@
 from src import utils
 
 # SQL query for creating staging database IF NOT EXISTS
-create_staging_db = ('''CREATE DATABASE IF NOT EXISTS {}'''.format(utils.STAGING_DB))
+create_staging_db = ('''CREATE DATABASE IF NOT EXISTS {}'''.format(
+    utils.STAGING_DB))
 
 # SQL query for creating production database IF NOT EXISTS
-create_production_db = ('''CREATE DATABASE IF NOT EXISTS  {}'''.format(utils.PRODUCTION_DB))
+create_production_db = ('''CREATE DATABASE IF NOT EXISTS  {}'''.format(
+    utils.PRODUCTION_DB))
 
 # SQL query for deleting table(s) IF EXISTS
-delete_order_items_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(utils.STAGING_DB, utils.TABLE_NAME_1))
-delete_late_fee_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(utils.STAGING_DB, utils.TABLE_NAME_2))
-delete_merchant_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
+delete_order_items_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(
+    utils.STAGING_DB, utils.TABLE_NAME_1))
+delete_late_fee_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(
+    utils.STAGING_DB, utils.TABLE_NAME_2))
+delete_merchant_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(
+    utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # SQL query for creating table(s) IF NOT EXISTS
 create_order_items_table = ('''
@@ -50,7 +55,7 @@ insert_data_into_order_items_tbl = ('''
                 JSON_UNQUOTE(payload), '$' COLUMNS
                     (
                         order_id VARCHAR(36) PATH '$.order_id',
-                        NESTED PATH '$.items[*]' 
+                        NESTED PATH '$.items[*]'
                         COLUMNS (
                                     item_name VARCHAR(255) PATH '$.name',
                                     quantity int PATH '$.quantity'
@@ -59,7 +64,8 @@ insert_data_into_order_items_tbl = ('''
                     )
             ) AS order_items_table
     WHERE payload LIKE '%item%'
-    '''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.SOURCE_DB, utils.SOURCE_TABLE))
+    '''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.SOURCE_DB,
+               utils.SOURCE_TABLE))
 
 insert_data_into_late_fee_tbl = ('''
     INSERT INTO {}.{} (order_id, payment_id, amount, currency, recorded_at)
@@ -71,7 +77,8 @@ insert_data_into_late_fee_tbl = ('''
         CAST(JSON_EXTRACT(JSON_UNQUOTE(payload), '$.recorded_at') AS DATETIME) AS recorded_at
     FROM {}.{}
     WHERE payload LIKE '%late%fee%amount%'
-    '''.format(utils.STAGING_DB, utils.TABLE_NAME_2, utils.SOURCE_DB, utils.SOURCE_TABLE))
+    '''.format(utils.STAGING_DB, utils.TABLE_NAME_2, utils.SOURCE_DB,
+               utils.SOURCE_TABLE))
 
 insert_data_into_merchant_tbl = ('''
     INSERT INTO {}.{} (order_id, merchant_id, merchant_name)
@@ -85,8 +92,8 @@ insert_data_into_merchant_tbl = ('''
                     )
             ) AS t1
             WHERE t1.merchant_name IS NOT NULL AND t1.merchant_id IS NOT NULL
-'''.format(utils.STAGING_DB, utils.TABLE_NAME_3, utils.SOURCE_DB, utils.SOURCE_TABLE))
-
+'''.format(utils.STAGING_DB, utils.TABLE_NAME_3, utils.SOURCE_DB,
+           utils.SOURCE_TABLE))
 
 # 1. SQL query to answer for Business questions 1
 # 1.1 Top 10 most purchased items by day
@@ -141,7 +148,8 @@ b2_1 = ('''
     GROUP BY item_name, currency
     ORDER BY SUM(late_fee_amount) DESC
     LIMIT 10
-    '''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_2))
+    '''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+               utils.TABLE_NAME_2))
 
 # 3. SQL query to answer for Business questions 3
 # 3.1 Top 10 merchants who have most new order value by day
@@ -152,7 +160,8 @@ b3_1 = ('''
     WHERE event_name LIKE '%OrderWasCreated%'
     GROUP BY merchant_name, merchant_id, DATE(created_at)
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+                       utils.TABLE_NAME_3))
 
 # 3.2 Top 10 merchants who have most new order value by month
 b3_2 = ('''
@@ -162,7 +171,8 @@ b3_2 = ('''
     WHERE event_name LIKE '%OrderWasCreated%'
     GROUP BY merchant_name, merchant_id, MONTH(created_at)
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+                       utils.TABLE_NAME_3))
 
 # 3.3 Top 10 merchants who have most new order value by quarter
 b3_3 = ('''
@@ -172,7 +182,8 @@ b3_3 = ('''
     WHERE event_name LIKE '%OrderWasCreated%'
     GROUP BY merchant_name, merchant_id, QUARTER(created_at)
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+                       utils.TABLE_NAME_3))
 
 # 3.4 Top 10 merchants who have most new order value by year
 b3_4 = ('''
@@ -182,7 +193,8 @@ b3_4 = ('''
     WHERE event_name LIKE '%OrderWasCreated%'
     GROUP BY merchant_name, merchant_id, YEAR(created_at)
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+                       utils.TABLE_NAME_3))
 
 # 4. SQL query to answer for Business questions 4
 # 4.1 Top 10 merchants who have most canceled order value by day
@@ -193,7 +205,8 @@ b4_1 = ('''
     WHERE event_name LIKE '%OrderWasCanceled%'
     GROUP BY merchant_name, DATE(created_at)
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+                       utils.TABLE_NAME_3))
 
 # 4.2 Top 10 merchants who have most canceled order value by month
 b4_2 = ('''
@@ -203,7 +216,8 @@ b4_2 = ('''
     WHERE event_name LIKE '%OrderWasCanceled%'
     GROUP BY merchant_name, MONTH(created_at)
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+                       utils.TABLE_NAME_3))
 
 # 4.3 Top 10 merchants who have most canceled order value by quarter
 b4_3 = ('''
@@ -213,7 +227,8 @@ b4_3 = ('''
     WHERE event_name LIKE '%OrderWasCanceled%'
     GROUP BY merchant_name, QUARTER(created_at)
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+                       utils.TABLE_NAME_3))
 
 # 4.4 Top 10 merchants who have most canceled order value by year
 b4_4 = ('''
@@ -223,12 +238,13 @@ b4_4 = ('''
     WHERE event_name LIKE '%OrderWasCanceled%'
     GROUP BY merchant_name, YEAR(created_at)
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB, utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
+                       utils.TABLE_NAME_3))
 
 # 5. SQL query to answer for Business questions 5
 # 5.1 Total late fee amount collected by day
 b5_1 = ('''
-    SELECT SUM(amount) AS late_fee_total_amount, currency, DATE(recorded_at) as date 
+    SELECT SUM(amount) AS late_fee_total_amount, currency, DATE(recorded_at) as date
     FROM {}.{}
     GROUP BY DATE(recorded_at), currency
     ORDER BY DATE(recorded_at)
@@ -236,7 +252,7 @@ b5_1 = ('''
 
 # 5.2 Total late fee amount collected by month
 b5_2 = ('''
-    SELECT SUM(amount) AS late_fee_total_amount, currency, MONTH(recorded_at) as month 
+    SELECT SUM(amount) AS late_fee_total_amount, currency, MONTH(recorded_at) as month
     FROM {}.{}
     GROUP BY MONTH(recorded_at), currency
     ORDER BY MONTH(recorded_at)
@@ -244,7 +260,7 @@ b5_2 = ('''
 
 # 5.3 Total late fee amount collected by quarter
 b5_3 = ('''
-    SELECT SUM(amount) AS late_fee_total_amount, currency, QUARTER(recorded_at) as quarter 
+    SELECT SUM(amount) AS late_fee_total_amount, currency, QUARTER(recorded_at) as quarter
     FROM {}.{}
     GROUP BY QUARTER(recorded_at), currency
     ORDER BY QUARTER(recorded_at)
@@ -252,7 +268,7 @@ b5_3 = ('''
 
 # 5.4 Total late fee amount collected by year
 b5_4 = ('''
-    SELECT SUM(amount) AS late_fee_total_amount, currency, YEAR(recorded_at) as year 
+    SELECT SUM(amount) AS late_fee_total_amount, currency, YEAR(recorded_at) as year
     FROM {}.{}
     GROUP BY YEAR(recorded_at), currency
     ORDER BY YEAR(recorded_at)
@@ -260,11 +276,19 @@ b5_4 = ('''
 
 # INIT
 keys_init = [utils.TABLE_NAME_1, utils.TABLE_NAME_2, utils.TABLE_NAME_3]
-values_init = [insert_data_into_order_items_tbl, insert_data_into_late_fee_tbl, insert_data_into_merchant_tbl]
+values_init = [
+    insert_data_into_order_items_tbl, insert_data_into_late_fee_tbl,
+    insert_data_into_merchant_tbl
+]
 query_dict_init = dict(zip(keys_init, values_init))
 
 # BQ-01
-bq1_keys =["Top 10 most purchased items by day", "Top 10 most purchased items by month", "Top 10 most purchased items by quarter", "Top 10 most purchased items by year"]
+bq1_keys = [
+    "Top 10 most purchased items by day",
+    "Top 10 most purchased items by month",
+    "Top 10 most purchased items by quarter",
+    "Top 10 most purchased items by year"
+]
 bq1_keys_values = [b1_1, b1_2, b1_3, b1_4]
 query_dict_bq1 = dict(zip(bq1_keys, bq1_keys_values))
 
@@ -274,16 +298,31 @@ bq2_keys_values = [b2_1]
 query_dict_bq2 = dict(zip(bq2_keys, bq2_keys_values))
 
 # BQ-03
-bq3_keys =["Top 10 merchants who have most new order value by day", "Top 10 merchants who have most new order value by month", "Top 10 merchants who have most new order value by quarter", "Top 10 merchants who have most new order value by year"]
+bq3_keys = [
+    "Top 10 merchants who have most new order value by day",
+    "Top 10 merchants who have most new order value by month",
+    "Top 10 merchants who have most new order value by quarter",
+    "Top 10 merchants who have most new order value by year"
+]
 bq3_keys_values = [b3_1, b3_2, b3_3, b3_4]
 query_dict_bq3 = dict(zip(bq3_keys, bq3_keys_values))
 
 # BQ-04
-bq4_keys =["Top 10 merchants who have most canceled order value by day", "Top 10 merchants who have most canceled order value by month", "Top 10 merchants who have most canceled order value by quarter", "Top 10 merchants who have most canceled order value by year"]
+bq4_keys = [
+    "Top 10 merchants who have most canceled order value by day",
+    "Top 10 merchants who have most canceled order value by month",
+    "Top 10 merchants who have most canceled order value by quarter",
+    "Top 10 merchants who have most canceled order value by year"
+]
 bq4_keys_values = [b4_1, b4_2, b4_3, b4_4]
 query_dict_bq4 = dict(zip(bq4_keys, bq4_keys_values))
 
 # BQ-05
-bq5_keys =["Total late fee amount collected by day", "Total late fee amount collected by month", "Total late fee amount collected by quarter", "Total late fee amount collected by year"]
+bq5_keys = [
+    "Total late fee amount collected by day",
+    "Total late fee amount collected by month",
+    "Total late fee amount collected by quarter",
+    "Total late fee amount collected by year"
+]
 bq5_keys_values = [b5_1, b5_2, b5_3, b5_4]
 query_dict_bq1 = dict(zip(bq5_keys, bq5_keys_values))
