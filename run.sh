@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-docker stop $(docker ps -aq)
-docker rm $(docker ps -aq)
-docker rmi $(docker images -q)
+docker stop mydb
+docker rm mydb
+docker rmi app -f
 
 # Building the app
 docker-compose build
