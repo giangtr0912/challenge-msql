@@ -8,6 +8,8 @@ create_staging_db = ('''CREATE DATABASE IF NOT EXISTS {}'''.format(
 create_production_db = ('''CREATE DATABASE IF NOT EXISTS  {}'''.format(
     utils.PRODUCTION_DB))
 
+create_test_db = ('''CREATE DATABASE IF NOT EXISTS {}'''.format(utils.TEST_DB))
+
 # SQL query for deleting table(s) IF EXISTS
 delete_order_items_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(
     utils.STAGING_DB, utils.TABLE_NAME_1))

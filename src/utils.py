@@ -36,6 +36,7 @@ target_db_staging_config = {
     'user': 'root',
     'password': 'root',
     'host': 'mydb',
+    'port': '3306',
     'database': '{}'.format(STAGING_DB)
 }
 
@@ -44,6 +45,7 @@ target_db_production_config = {
     'user': 'root',
     'password': 'root',
     'host': 'mydb',
+    'port': '3306',
     'database': '{}'.format(PRODUCTION_DB)
 }
 
@@ -52,6 +54,7 @@ test_db_config = {
     'user': 'root',
     'password': 'root',
     'host': 'mydb',
+    'port': '3306',
     'database': '{}'.format(TEST_DB)
 }
 
