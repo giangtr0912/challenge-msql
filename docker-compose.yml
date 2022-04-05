@@ -2,12 +2,13 @@ version: '3.1'
 
 services:
   db:
+    container_name: mydb
     image: mysql
     # env_file: _docker/.env
     command: --default-authentication-plugin=mysql_native_password
     restart: on-failure
     ports:
-      - 3306:3306
+      - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
     volumes:
@@ -16,5 +17,18 @@ services:
       - SYS_NICE  # CAP_SYS_NICE
     healthcheck:
       test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
-      interval: 5s
+      interval: 1m
+      timeout: 10s
       retries: 5
+
+  app:
+    build: .
+    image: "app:latest"
+    container_name: app
+    links:
+        - db
+    depends_on:
+        - db
+    command: >
+        sh -c "python3 src/wait_for_mysql.py && python3 src/main.py"
+
