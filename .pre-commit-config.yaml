@@ -4,31 +4,31 @@ repos:
       hooks:
         - id: YAPF 
           name: YAPF 🧹
-          entry: zsh -c 'yapf --in-place *.py'
+          entry: bash -c 'yapf --in-place **/*.py'
           language: system
           always_run: true
           pass_filenames: true
         - id: isort 
           name: isort 📚
-          entry: zsh -c 'isort .'
+          entry: bash -c 'isort ./src/'
           language: system
           always_run: true
           pass_filenames: true
         - id: autoflake 
           name: autoflake ❄️
-          entry: zsh -c 'autoflake --in-place --remove-unused-variables --remove-all-unused-imports *.py'
+          entry: bash -c 'autoflake --in-place --remove-unused-variables --remove-all-unused-imports **/*.py'
           language: system
           always_run: true
           pass_filenames: true
         - id: pylint 
           name: pylint 🔎
-          entry: zsh -c 'pylint --fail-under=7 *.py'
+          entry: bash -c 'pylint --fail-under=7 **/*.py'
           language: system
           always_run: true
           pass_filenames: true
         - id: pytest 
           name: Unit Tests 🧪
-          entry: zsh -c 'pytest test_helpers.py'
+          entry: bash -c 'python3 -m pytest ./tests/'
           language: system
           always_run: true
           pass_filenames: false
