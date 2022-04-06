@@ -51,10 +51,10 @@ while True:
             result = cursor.fetchone()
 
             if result and len(result) > 0:
-                print("database %s create successful", db)
+                print(f"database {db} create successful")
                 break
             else:
-                print("database %s not created... waiting...", db)
+                print(f"database {db} not created... waiting...")
                 time.sleep(1)
 
             cursor.close()
@@ -62,5 +62,5 @@ while True:
         conn.close()
         break
     except Exception as e:
-        print("MYSQL not responds.. waiting for mysql up: %s" % e)
+        print(f"MYSQL not responds.. waiting for mysql up: {e}")
         time.sleep(1)

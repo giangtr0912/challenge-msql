@@ -12,14 +12,12 @@ def test_order_items_table_exists(cursor, order_items_project):
 
 
 def test_late_fee_table_exists(cursor, late_fee_project):
-    # cursor.execute('select * from {}'.format(utils.TABLE_NAME_2))
-    # rs = cursor.fetchall()
-    # assert len(rs) == 2
-    pass
+    cursor.execute('select * from {}'.format(utils.TABLE_NAME_2))
+    rs = cursor.fetchall()
+    assert len(rs) == 286
 
 
 def test_merchant_table_exists(cursor, merchant_project):
-    # cursor.execute('select * from {}'.format(utils.TABLE_NAME_3))
-    # rs = cursor.fetchall()
-    # assert len(rs) == 2
-    pass
+    cursor.execute('select * from {}'.format(utils.TABLE_NAME_3))
+    rs = cursor.fetchall()
+    assert len(rs) == 1000

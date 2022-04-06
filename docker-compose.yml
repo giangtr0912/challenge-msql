@@ -30,5 +30,5 @@ services:
     depends_on:
         - db
     command: >
-        sh -c "python3 src/wait_for_mysql.py && python3 src/main.py"
+        sh -c "python3 src/wait_for_mysql.py && python3 -m pytest tests/ && python3 src/main.py"
 

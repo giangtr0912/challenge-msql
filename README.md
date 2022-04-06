@@ -621,7 +621,7 @@ SELECT SUM(amount) AS late_fee_total_amount, currency, YEAR(recorded_at) as year
 
 Export the database
 ```
-docker exec mydb mysqldump -u root --password=root tamara_staging > .output/tamara_staging.sql
+docker exec mydb mysqldump -u root --password=root tamara_staging > output/tamara_staging.sql
 ```
 
 Stopping containers and cleaning
