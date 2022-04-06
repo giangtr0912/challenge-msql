@@ -26,6 +26,6 @@ nano .pre-commit-config.yaml
 git commit . -m "quick fix" --no-verify (su dung de push len github)
 # https://ma.ttias.be/git-commit-without-pre-commit-hook/#:~:text=Quick%20tip%20if%20you%20want,get%20a%20commit%20out%20there.&text=To%20get%20your%20commit%20through,the%20%2D%2Dno%2Dverify%20option.&text=Voila%2C%20without%20pre%2Dcommit%20hooks%20running!
 
-
+docker commit 3ad94481ebaf ubuntu_dev:1.0 (trong do 3ad94481ebaf la CONTAINER ID cua container name ubuntu_dev)
 
 
