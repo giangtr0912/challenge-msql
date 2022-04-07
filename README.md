@@ -13,34 +13,41 @@ So we need to create some pipelines to denormalize JSON fields in order_events t
 
 ---
 ### Acceptance Criteria
-- Setup project structure + Docker + code linting + mypy
-- Storage:
+- Setup project structure + Docker + code linting + mypy (Done)
+- Storage: (Done)
 Input: MySQL
 Output: Mysql
-- Answer all critical business questions
+- Answer all critical business questions (Done)
 
 ### Good to have:
-- Pipeline that support incremental update in real time
-- Unit tests and integration tests for critical logic
-- Architecture: Cloud native (K8s)
-- Define CICD (github, gitlab,...)
+- Pipeline that support incremental update in real time (Done)
+- Unit tests and integration tests for critical logic (Done)
+- Architecture: Cloud native (K8s) (Under investigation)
+- Define CICD (github, gitlab,...) (Underinvestigation)
 
 # Actions & Results
-## Problem statements
+## Explore the data and the proposal of data structure
+Order_event table contains information of 4063 states (event_name) of 1000 orders (order_id) from different merchants (merchant_name & merchant_id). In order to answer the given business questions, some parameters need to be archieved from the payload Json field, named: name of item, name of merchant, late fee amount, and time. Based on the following bussiness question, a detailed analyst was conducted:
 + Top 10 most purchased items by day, month, quarter, year:
---> requires name of items (item_name): item iformation is stored in key `item` of payload and store as a list, to extract those info, Json_table is used. 
-, quantity of items (quantity), time (created_at)
+--> requires name of items (item_name): item iformation is stored in key `item` of payload and store as a list, to reformatad and extract those info, JSON_TABLE() and JSON_UNQUOTE() are used, quantity of items (quantity), time (created_at).
 + Top 10 items that contributed most to the late fee:
---> requires name of items, late fee (event_name), time
+--> requires name of items, late fee (event_name) and time.
 + Top 10 merchants who have most new order value by day, month, quarter, year:
---> requires merchant's name, merchant's id, new order (status, or event_name), time
+--> requires merchant's name, merchant's id, event_name and time.
 + Top 10 merchants who have most canceled order value by day, month, quarter, year:
---> requires merchant's name, merchant's id, canceled status (status, or event_name), time
+--> requires merchant's name, merchant's id, canceled status (status, or event_name) and time.
 + Total late fee amount collected by day, month, quarter, year:
---> requires late fee, time n
+--> requires late fee amount, currency and time.
 
 
-## App
+In order to answer the above business questions by simple queries, 3 tables are created:
+
++ Table 1 named **order_item_main_infos**, it helps to make the simple query to answer for the question number 1. The table stores infos of purchased (id, order_id, item_name, quantity, status, created_at and event_name).
++ Table 2 named **order_late_fee_infos**,  it helps to make the simple query to answer for the question number 2 and 5. The table stores infos of purchased (id, order_id, payment_id, amount, currency and recorded_at).
++ Table 3 named **order_merchant_infos**, it helps to make the simple query to answer for the question number 3 and 4. The table stores infos of purchased (id, order_id, item_name, merchant_id, merchant_name, event_name and created_at).
+
+
+## Build the App
 
 App is a Python library for dealing with data challenge.
 
@@ -48,36 +55,32 @@ App is a Python library for dealing with data challenge.
 
 Use this link [Docker](https://docs.docker.com/engine/install/) to install docker.
 
-### Project folder structure
+### Project folder structure design
 ```bash
 .
-├── baseimage-docker
-│   ├── command.bat
-│   └── Dockerfile
-├── command.bat
 ├── docker-compose.yml
 ├── Dockerfile
 ├── dumps
-│   └── tamara.sql
+│   └── tamara.sql
 ├── LICENSE
 ├── output
-│   └── tamara_staging.sql
+│   └── tamara_staging.sql
 ├── README.md
 ├── requirements.txt
 ├── run.sh
 ├── src
-│   ├── __init__.py
-│   ├── main.py
-│   ├── queries.py
-│   ├── utils.py
-│   └── wait_for_mysql.py
+│   ├── __init__.py
+│   ├── main.py
+│   ├── queries.py
+│   ├── utils.py
+│   └── wait_for_mysql.py
 └── tests
     ├── conftest.py
     ├── mock_db.py
     ├── test_database.py
     └── test_utils.py
 
-5 directories, 20 files
+4 directories, 17 files
 
 ```
 ### Usage
@@ -98,86 +101,25 @@ Step 1/7 : FROM python:3.8
  ---> 0a91fd9cc482
 Step 2/7 : ENV PYTHONBUFFERED 1
  ---> Using cache
- ---> 50fabca3dfb3
+ ---> cfcaa40a4e44
 Step 3/7 : WORKDIR /tamara
  ---> Using cache
- ---> ac989077bd46
+ ---> b5ce127ad562
 Step 4/7 : ADD requirements.txt requirements.txt
- ---> dddea9905b3f
+ ---> Using cache
+ ---> aff014bb47f3
 Step 5/7 : RUN python3 -m pip install --upgrade pip setuptools && python3 -m pip install -r requirements.txt
- ---> Running in d1b85c9c3c81
-Requirement already satisfied: pip in /usr/local/lib/python3.8/site-packages (22.0.4)
-Requirement already satisfied: setuptools in /usr/local/lib/python3.8/site-packages (57.5.0)
-Collecting setuptools
-  Downloading setuptools-62.0.0-py3-none-any.whl (1.1 MB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.1/1.1 MB 1.1 MB/s eta 0:00:00
-Installing collected packages: setuptools
-  Attempting uninstall: setuptools
-    Found existing installation: setuptools 57.5.0
-    Uninstalling setuptools-57.5.0:
-      Successfully uninstalled setuptools-57.5.0
-Successfully installed setuptools-62.0.0
-WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
-Collecting mock==4.0.3
-  Downloading mock-4.0.3-py3-none-any.whl (28 kB)
-Collecting mysql-connector==2.2.9
-  Downloading mysql-connector-2.2.9.tar.gz (11.9 MB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.9/11.9 MB 14.1 MB/s eta 0:00:00
-  Preparing metadata (setup.py): started
-  Preparing metadata (setup.py): finished with status 'done'
-Collecting mysqlclient==1.4.6
-  Downloading mysqlclient-1.4.6.tar.gz (85 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 85.5/85.5 KB 7.5 MB/s eta 0:00:00
-  Preparing metadata (setup.py): started
-  Preparing metadata (setup.py): finished with status 'done'
-Collecting pytest==7.1.1
-  Downloading pytest-7.1.1-py3-none-any.whl (297 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 297.0/297.0 KB 34.1 MB/s eta 0:00:00
-Collecting tabulate==0.8.9
-  Downloading tabulate-0.8.9-py3-none-any.whl (25 kB)
-Collecting pluggy<2.0,>=0.12
-  Downloading pluggy-1.0.0-py2.py3-none-any.whl (13 kB)
-Collecting py>=1.8.2
-  Downloading py-1.11.0-py2.py3-none-any.whl (98 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 98.7/98.7 KB 8.6 MB/s eta 0:00:00
-Collecting iniconfig
-  Downloading iniconfig-1.1.1-py2.py3-none-any.whl (5.0 kB)
-Collecting packaging
-  Downloading packaging-21.3-py3-none-any.whl (40 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 40.8/40.8 KB 9.0 MB/s eta 0:00:00
-Collecting tomli>=1.0.0
-  Downloading tomli-2.0.1-py3-none-any.whl (12 kB)
-Collecting attrs>=19.2.0
-  Downloading attrs-21.4.0-py2.py3-none-any.whl (60 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 60.6/60.6 KB 5.4 MB/s eta 0:00:00
-Collecting pyparsing!=3.0.5,>=2.0.2
-  Downloading pyparsing-3.0.7-py3-none-any.whl (98 kB)
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 98.0/98.0 KB 8.3 MB/s eta 0:00:00
-Building wheels for collected packages: mysql-connector, mysqlclient
-  Building wheel for mysql-connector (setup.py): started
-  Building wheel for mysql-connector (setup.py): finished with status 'done'
-  Created wheel for mysql-connector: filename=mysql_connector-2.2.9-cp38-cp38-linux_x86_64.whl size=247965 sha256=f20194a35d4dac8cffba8e270422a40dabcc6fad6cfc692f2df87e7af969c1c6
-  Stored in directory: /root/.cache/pip/wheels/57/e4/98/5feafb5c393dd2540e44b064a6f95832990d543e5b4f53ea8f
-  Building wheel for mysqlclient (setup.py): started
-  Building wheel for mysqlclient (setup.py): finished with status 'done'
-  Created wheel for mysqlclient: filename=mysqlclient-1.4.6-cp38-cp38-linux_x86_64.whl size=111165 sha256=21919498d75f129085cbe5e553690a1142f9dc89cb8fac097163b07350d0390b
-  Stored in directory: /root/.cache/pip/wheels/8a/3c/e6/347e293dbcd62352ee2806f68d624aae821bca7efe0070c963
-Successfully built mysql-connector mysqlclient
-Installing collected packages: tabulate, mysqlclient, mysql-connector, iniconfig, tomli, pyparsing, py, pluggy, mock, attrs, packaging, pytest
-Successfully installed attrs-21.4.0 iniconfig-1.1.1 mock-4.0.3 mysql-connector-2.2.9 mysqlclient-1.4.6 packaging-21.3 pluggy-1.0.0 py-1.11.0 pyparsing-3.0.7 pytest-7.1.1 tabulate-0.8.9 tomli-2.0.1
-WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
-Removing intermediate container d1b85c9c3c81
- ---> 66d278d1e1ce
+ ---> Using cache
+ ---> 8bbf925dd69b
 Step 6/7 : ADD ./ /tamara
- ---> 0b50ee9ad228
+ ---> 9f598c9c477d
 Step 7/7 : VOLUME ["/challenge-msql"]
- ---> Running in 12d692dd0666
-Removing intermediate container 12d692dd0666
- ---> 71dd32bb2ab8
-Successfully built 71dd32bb2ab8
+ ---> Running in 27624e58ad44
+Removing intermediate container 27624e58ad44
+ ---> 1f95a1bacf81
+Successfully built 1f95a1bacf81
 Successfully tagged app:latest
 Running the app
-Creating network "challenge-msql_default" with the default driver
 Creating mydb ... done
 
         
@@ -207,23 +149,31 @@ MYSQL not responds.. waiting for mysql up: (2002, "Can't connect to MySQL server
 MYSQL not responds.. waiting for mysql up: (2002, "Can't connect to MySQL server on 'db' (115)")
 MYSQL not responds.. waiting for mysql up: (2002, "Can't connect to MySQL server on 'db' (115)")
 MYSQL not responds.. waiting for mysql up: (2002, "Can't connect to MySQL server on 'db' (115)")
-MYSQL not responds.. waiting for mysql up: (2002, "Can't connect to MySQL server on 'db' (115)")
 database tamara create successful
-============================================================ test session starts ============================================================
+======================================================================================= test session starts ========================================================================================
 platform linux -- Python 3.8.13, pytest-7.1.1, pluggy-1.0.0
 rootdir: /tamara
-collected 4 items                                                                                                                           
+collected 4 items                                                                                                                                                                                  
 
-tests/test_database.py ...                                                                                                            [ 75%]
-tests/test_utils.py .                                                                                                                 [100%]
+tests/test_database.py ...                                                                                                                                                                   [ 75%]
+tests/test_utils.py .                                                                                                                                                                        [100%]
 
-============================================================= 4 passed in 1.13s =============================================================
+======================================================================================== 4 passed in 0.95s =========================================================================================
 Databases initialization successful
-Begin insert data into order_item_main_infos
+Begin check order_item_main_infos table
+SELECT id FROM tamara_staging.order_item_main_infos ORDER BY id DESC LIMIT 1
+[]
+Begin insert data into order_item_main_infos table from id = 0
 Successfully insert data into order_item_main_infos
-Begin insert data into order_late_fee_infos
+Begin check order_late_fee_infos table
+SELECT MAX(id) FROM tamara_staging.order_late_fee_infos ORDER BY id DESC LIMIT 1
+[None]
+Begin insert data into order_late_fee_infos table from id = 0
 Successfully insert data into order_late_fee_infos
-Begin insert data into order_merchant_infos
+Begin check order_merchant_infos table
+SELECT MAX(id) FROM tamara_staging.order_merchant_infos ORDER BY id DESC LIMIT 1
+[None]
+Begin insert data into order_merchant_infos table from id = 0
 Successfully insert data into order_merchant_infos
 
 Total late fee amount collected by day
@@ -410,203 +360,194 @@ SELECT item_name, SUM(late_fee_amount) AS late_fee_total_mount, currency
 
 Top 10 merchants who have most new order value by day
 query: 
-SELECT merchant_id, merchant_name, COUNT(event_name) AS new_order_total, DATE(created_at) AS date
-    FROM
-    (SELECT * FROM tamara_staging.order_item_main_infos t1 NATURAL JOIN tamara_staging.order_merchant_infos t2 WHERE t1.order_id = t2.order_id) as t3
-    WHERE event_name LIKE '%OrderWasCreated%'
-    GROUP BY merchant_name, merchant_id, DATE(created_at)
-    ORDER BY COUNT(event_name) DESC
+SELECT merchant_name, COUNT(merchant_id) AS new_order_value
+    FROM tamara_staging.order_merchant_infos
+    WHERE DATE(created_at) = '2020-10-20'
+    GROUP BY merchant_name
+    ORDER BY COUNT(merchant_id) DESC
     LIMIT 10
  result:
-+--------------------------------------+-----------------+-----------------+------------+
-| merchant_id                          | merchant_name   |   new_order_day | day        |
-|--------------------------------------+-----------------+-----------------+------------|
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |             121 | 2020-10-20 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |              92 | 2020-10-15 |
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |              58 | 2020-10-21 |
-| a807eb01-dc22-4e9a-bf57-ee4b1a8fbfd5 | Wosof           |              56 | 2020-10-14 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |              48 | 2020-09-23 |
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |              33 | 2020-10-22 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |              32 | 2020-11-04 |
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |              32 | 2020-11-04 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |              30 | 2020-10-21 |
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |              30 | 2020-11-01 |
-+--------------------------------------+-----------------+-----------------+------------+
++-----------------+-------------------+
+| merchant_name   |   new_order_value |
+|-----------------+-------------------|
+| Saramakeup      |                10 |
+| Mix store       |                 5 |
+| Salla-Test      |                 2 |
+| PowerX          |                 2 |
+| E-things Store  |                 2 |
+| Tanto Shop      |                 1 |
+| Dar Lena        |                 1 |
+| Elegant Look    |                 1 |
+| nadally         |                 1 |
++-----------------+-------------------+
 
 Top 10 merchants who have most new order value by month
 query: 
-SELECT merchant_id, merchant_name, COUNT(event_name) AS new_order_total, MONTH(created_at) AS month
-    FROM
-    (SELECT * FROM tamara_staging.order_item_main_infos t1 NATURAL JOIN tamara_staging.order_merchant_infos t2 WHERE t1.order_id = t2.order_id) as t3
-    WHERE event_name LIKE '%OrderWasCreated%'
-    GROUP BY merchant_name, merchant_id, MONTH(created_at)
-    ORDER BY COUNT(event_name) DESC
+SELECT merchant_name, COUNT(merchant_id) AS new_order_value
+    FROM tamara_staging.order_merchant_infos
+    WHERE MONTH(created_at) = 10
+    GROUP BY merchant_name
+    ORDER BY COUNT(merchant_id) DESC
     LIMIT 10
  result:
-+--------------------------------------+-----------------+-----------------+---------+
-| merchant_id                          | merchant_name   |   new_order_day |   month |
-|--------------------------------------+-----------------+-----------------+---------|
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |             352 |      10 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |             209 |      10 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |             160 |       9 |
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |             139 |      11 |
-| ccb9027b-c3c5-4cb6-befb-c12d4c4d5049 | Namshi          |             112 |      11 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |             103 |      11 |
-| a807eb01-dc22-4e9a-bf57-ee4b1a8fbfd5 | Wosof           |              80 |      10 |
-| ac0e9fa3-4077-4e58-8c02-f0e5ccbb8f83 | Mix store       |              80 |      10 |
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |              75 |       9 |
-| 36e56a72-b450-4f96-8529-f2745fd8e218 | Dar Lena        |              74 |      11 |
-+--------------------------------------+-----------------+-----------------+---------+
++-----------------+-------------------+
+| merchant_name   |   new_order_value |
+|-----------------+-------------------|
+| Saramakeup      |                58 |
+| Mix store       |                49 |
+| PowerX          |                40 |
+| Dar Lena        |                27 |
+| Glamour         |                24 |
+| Automart SA     |                18 |
+| Optique         |                18 |
+| Bsthebue        |                17 |
+| Namshi          |                16 |
+| Wosof           |                13 |
++-----------------+-------------------+
 
 Top 10 merchants who have most new order value by quarter
 query: 
-SELECT merchant_id, merchant_name, COUNT(event_name) AS new_order_total, QUARTER(created_at) AS quarter
-    FROM
-    (SELECT * FROM tamara_staging.order_item_main_infos t1 NATURAL JOIN tamara_staging.order_merchant_infos t2 WHERE t1.order_id = t2.order_id) as t3
-    WHERE event_name LIKE '%OrderWasCreated%'
-    GROUP BY merchant_name, merchant_id, QUARTER(created_at)
-    ORDER BY COUNT(event_name) DESC
+SELECT merchant_name, COUNT(merchant_id) AS new_order_value
+    FROM tamara_staging.order_merchant_infos
+    WHERE QUARTER(created_at) = 4
+    GROUP BY merchant_name
+    ORDER BY COUNT(merchant_id) DESC
     LIMIT 10
  result:
-+--------------------------------------+-----------------+-----------------+-----------+
-| merchant_id                          | merchant_name   |   new_order_day |   quarter |
-|--------------------------------------+-----------------+-----------------+-----------|
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |             491 |         4 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |             312 |         4 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |             160 |         3 |
-| ccb9027b-c3c5-4cb6-befb-c12d4c4d5049 | Namshi          |             141 |         4 |
-| 36e56a72-b450-4f96-8529-f2745fd8e218 | Dar Lena        |             119 |         4 |
-| 9365dee3-f572-4d97-91a6-5e5e2b716559 | PowerX          |              88 |         4 |
-| ac0e9fa3-4077-4e58-8c02-f0e5ccbb8f83 | Mix store       |              80 |         4 |
-| a807eb01-dc22-4e9a-bf57-ee4b1a8fbfd5 | Wosof           |              80 |         4 |
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |              75 |         3 |
-| 99e6ed98-bf61-4fa0-96f1-b18d32ddb162 | Pets Shop       |              56 |         4 |
-+--------------------------------------+-----------------+-----------------+-----------+
++-----------------+-------------------+
+| merchant_name   |   new_order_value |
+|-----------------+-------------------|
+| Saramakeup      |               114 |
+| Dar Lena        |                80 |
+| PowerX          |                72 |
+| Mix store       |                53 |
+| Namshi          |                51 |
+| Glamour         |                39 |
+| Johrh           |                34 |
+| Bsthebue        |                27 |
+| Optique         |                22 |
+| Automart SA     |                21 |
++-----------------+-------------------+
 
 Top 10 merchants who have most new order value by year
 query: 
-SELECT merchant_id, merchant_name, COUNT(event_name) as new_order_total, YEAR(created_at) AS year
-    FROM
-    (SELECT * FROM tamara_staging.order_item_main_infos t1 NATURAL JOIN tamara_staging.order_merchant_infos t2 WHERE t1.order_id = t2.order_id) as t3
-    WHERE event_name LIKE '%OrderWasCreated%'
-    GROUP BY merchant_name, merchant_id, YEAR(created_at)
-    ORDER BY COUNT(event_name) DESC
+SELECT merchant_name, COUNT(merchant_id) AS new_order_value
+    FROM tamara_staging.order_merchant_infos
+    WHERE YEAR(created_at) = 2020
+    GROUP BY merchant_name
+    ORDER BY COUNT(merchant_id) DESC
     LIMIT 10
  result:
-+--------------------------------------+-----------------+-----------------+--------+
-| merchant_id                          | merchant_name   |   new_order_day |   year |
-|--------------------------------------+-----------------+-----------------+--------|
-| 3156e27d-72a2-4e4d-98b1-7e90ce8e6047 | Saramakeup      |             566 |   2020 |
-| 80c897b8-0db2-467a-936b-a22d7f093667 | Glamour         |             472 |   2020 |
-| ccb9027b-c3c5-4cb6-befb-c12d4c4d5049 | Namshi          |             141 |   2020 |
-| 36e56a72-b450-4f96-8529-f2745fd8e218 | Dar Lena        |             119 |   2020 |
-| 9365dee3-f572-4d97-91a6-5e5e2b716559 | PowerX          |              88 |   2020 |
-| a807eb01-dc22-4e9a-bf57-ee4b1a8fbfd5 | Wosof           |              80 |   2020 |
-| ac0e9fa3-4077-4e58-8c02-f0e5ccbb8f83 | Mix store       |              80 |   2020 |
-| 99e6ed98-bf61-4fa0-96f1-b18d32ddb162 | Pets Shop       |              56 |   2020 |
-| 4082e974-8fa8-44fe-8a18-d5d40d144af0 | Kttaan          |              53 |   2020 |
-| 8a96844d-b1a4-49aa-83aa-397da3c1ceef | muscles world   |              51 |   2020 |
-+--------------------------------------+-----------------+-----------------+--------+
++-----------------+-------------------+
+| merchant_name   |   new_order_value |
+|-----------------+-------------------|
+| Saramakeup      |               133 |
+| Dar Lena        |                80 |
+| PowerX          |                72 |
+| Glamour         |                61 |
+| Mix store       |                53 |
+| Namshi          |                50 |
+| Optique         |                34 |
+| Johrh           |                34 |
+| Bsthebue        |                27 |
+| Elegant Look    |                23 |
++-----------------+-------------------+
 
 Top 10 merchants who have most canceled order value by day
 query: 
-SELECT merchant_name, COUNT(event_name) AS canceled_order_total, DATE(created_at) AS date
-    FROM
-    (SELECT * FROM tamara_staging.order_item_main_infos t1 NATURAL JOIN tamara_staging.order_merchant_infos t2 WHERE t1.order_id = t2.order_id) AS t3
-    WHERE event_name LIKE '%OrderWasCanceled%'
-    GROUP BY merchant_name, DATE(created_at)
+SELECT merchant_name, COUNT(event_name) AS canceled_order_total
+    FROM tamara_staging.order_merchant_infos
+    WHERE event_name LIKE '%OrderWasCanceled%' OR event_name LIKE '%OrderWasResolved%' AND DATE(created_at) = '2020-09-30'
+    GROUP BY merchant_name
     ORDER BY COUNT(event_name) DESC
     LIMIT 10
  result:
-+-----------------+------------------------+------------+
-| merchant_name   |   canceled_order_total | day        |
-|-----------------+------------------------+------------|
-| Saramakeup      |                      5 | 2020-09-30 |
-| Saramakeup      |                      4 | 2020-10-21 |
-| qatfat          |                      4 | 2020-12-10 |
-| Fernaz Cafe     |                      4 | 2020-11-03 |
-| Elegant Look    |                      3 | 2020-10-24 |
-| Namshi          |                      3 | 2020-10-27 |
-| Saramakeup      |                      2 | 2020-09-17 |
-| Salla-Test      |                      2 | 2020-10-18 |
-| Fernaz Cafe     |                      2 | 2020-10-18 |
-| Namshi          |                      2 | 2021-03-14 |
-+-----------------+------------------------+------------+
++-----------------+------------------------+
+| merchant_name   |   canceled_order_total |
+|-----------------+------------------------|
+| Saramakeup      |                      3 |
+| Fernaz Cafe     |                      2 |
+| Namshi          |                      2 |
+| Theviolet store |                      2 |
+| qatfat          |                      2 |
+| Mioist1         |                      1 |
+| Salla-Test      |                      1 |
+| Elegant Look    |                      1 |
+| Dar Lena        |                      1 |
+| Coffee drop SA  |                      1 |
++-----------------+------------------------+
 
 Top 10 merchants who have most canceled order value by month
 query: 
-SELECT merchant_name, COUNT(event_name) AS canceled_order_total, MONTH(created_at) AS month
-    FROM
-    (SELECT * FROM tamara_staging.order_item_main_infos t1 NATURAL JOIN tamara_staging.order_merchant_infos t2 WHERE t1.order_id = t2.order_id) AS t3
-    WHERE event_name LIKE '%OrderWasCanceled%'
-    GROUP BY merchant_name, MONTH(created_at)
+SELECT merchant_name, COUNT(event_name) AS canceled_order_total
+    FROM tamara_staging.order_merchant_infos
+    WHERE event_name LIKE '%OrderWasCanceled%' OR event_name LIKE '%OrderWasResolved%' AND MONTH(created_at) = 9
+    GROUP BY merchant_name
     ORDER BY COUNT(event_name) DESC
     LIMIT 10
  result:
-+-----------------+------------------------+---------+
-| merchant_name   |   canceled_order_total |   month |
-|-----------------+------------------------+---------|
-| Saramakeup      |                      7 |       9 |
-| Saramakeup      |                      4 |      10 |
-| qatfat          |                      4 |      12 |
-| Fernaz Cafe     |                      4 |      11 |
-| Elegant Look    |                      3 |      10 |
-| Namshi          |                      3 |      10 |
-| Salla-Test      |                      2 |      10 |
-| Fernaz Cafe     |                      2 |      10 |
-| Namshi          |                      2 |       3 |
-| Mioist1         |                      1 |      10 |
-+-----------------+------------------------+---------+
++-----------------+------------------------+
+| merchant_name   |   canceled_order_total |
+|-----------------+------------------------|
+| Saramakeup      |                      3 |
+| Fernaz Cafe     |                      2 |
+| Namshi          |                      2 |
+| Theviolet store |                      2 |
+| qatfat          |                      2 |
+| Mioist1         |                      1 |
+| Salla-Test      |                      1 |
+| Elegant Look    |                      1 |
+| Dar Lena        |                      1 |
+| Coffee drop SA  |                      1 |
++-----------------+------------------------+
 
 Top 10 merchants who have most canceled order value by quarter
 query: 
-SELECT merchant_name, COUNT(event_name) AS canceled_order_total, QUARTER(created_at) AS quarter
-    FROM
-    (SELECT * FROM tamara_staging.order_item_main_infos t1 NATURAL JOIN tamara_staging.order_merchant_infos t2 WHERE t1.order_id = t2.order_id) AS t3
-    WHERE event_name LIKE '%OrderWasCanceled%'
-    GROUP BY merchant_name, QUARTER(created_at)
+SELECT merchant_name, COUNT(event_name) AS canceled_order_total
+    FROM tamara_staging.order_merchant_infos
+    WHERE event_name LIKE '%OrderWasCanceled%' OR event_name LIKE '%OrderWasResolved%' AND QUARTER(created_at) = 3
+    GROUP BY merchant_name
     ORDER BY COUNT(event_name) DESC
     LIMIT 10
  result:
-+-----------------+------------------------+-----------+
-| merchant_name   |   canceled_order_total |   quarter |
-|-----------------+------------------------+-----------|
-| Saramakeup      |                      7 |         3 |
-| Fernaz Cafe     |                      6 |         4 |
-| Saramakeup      |                      4 |         4 |
-| qatfat          |                      4 |         4 |
-| Elegant Look    |                      3 |         4 |
-| Namshi          |                      3 |         4 |
-| Salla-Test      |                      2 |         4 |
-| Namshi          |                      2 |         1 |
-| Theviolet store |                      2 |         4 |
-| Mioist1         |                      1 |         4 |
-+-----------------+------------------------+-----------+
++-----------------+------------------------+
+| merchant_name   |   canceled_order_total |
+|-----------------+------------------------|
+| Saramakeup      |                      3 |
+| Fernaz Cafe     |                      2 |
+| Namshi          |                      2 |
+| Theviolet store |                      2 |
+| qatfat          |                      2 |
+| Mioist1         |                      1 |
+| Salla-Test      |                      1 |
+| Elegant Look    |                      1 |
+| Dar Lena        |                      1 |
+| Coffee drop SA  |                      1 |
++-----------------+------------------------+
 
 Top 10 merchants who have most canceled order value by year
 query: 
-SELECT merchant_name, COUNT(event_name) AS canceled_order_total, YEAR(created_at) AS year
-    FROM
-    (SELECT * FROM tamara_staging.order_item_main_infos t1 NATURAL JOIN tamara_staging.order_merchant_infos t2 WHERE t1.order_id = t2.order_id) AS t3
-    WHERE event_name LIKE '%OrderWasCanceled%'
-    GROUP BY merchant_name, YEAR(created_at)
+SELECT merchant_name, COUNT(event_name) AS canceled_order_total
+    FROM tamara_staging.order_merchant_infos
+    WHERE event_name LIKE '%OrderWasCanceled%' OR event_name LIKE '%OrderWasResolved%' AND YEAR(created_at) = 2020
+    GROUP BY merchant_name
     ORDER BY COUNT(event_name) DESC
     LIMIT 10
  result:
-+-----------------+------------------------+--------+
-| merchant_name   |   canceled_order_total |   year |
-|-----------------+------------------------+--------|
-| Saramakeup      |                     11 |   2020 |
-| Fernaz Cafe     |                      6 |   2020 |
-| qatfat          |                      4 |   2020 |
-| Elegant Look    |                      3 |   2020 |
-| Namshi          |                      3 |   2020 |
-| Salla-Test      |                      2 |   2020 |
-| Namshi          |                      2 |   2021 |
-| Theviolet store |                      2 |   2020 |
-| Mioist1         |                      1 |   2020 |
-| Dar Lena        |                      1 |   2020 |
-+-----------------+------------------------+--------+
++-----------------+------------------------+
+| merchant_name   |   canceled_order_total |
+|-----------------+------------------------|
+| Saramakeup      |                      3 |
+| Fernaz Cafe     |                      2 |
+| Namshi          |                      2 |
+| Theviolet store |                      2 |
+| qatfat          |                      2 |
+| Mioist1         |                      1 |
+| Salla-Test      |                      1 |
+| Elegant Look    |                      1 |
+| Dar Lena        |                      1 |
+| Coffee drop SA  |                      1 |
++-----------------+------------------------+
 
 Total late fee amount collected by day
 query: 
@@ -764,10 +705,6 @@ SELECT SUM(amount) AS late_fee_total_amount, currency, YEAR(recorded_at) as year
 Export database to file: output/tamara_staging.sql
 mysqldump: [Warning] Using a password on the command line interface can be insecure.
 Stopping the containers
-Stopping mydb ... done
-Removing challenge-msql_app_run_67e87dd16dc6 ... done
-Removing mydb                                ... done
-Removing network challenge-msql_default
 
 ```
 

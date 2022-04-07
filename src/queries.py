@@ -18,9 +18,21 @@ delete_late_fee_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(
 delete_merchant_table = ('''DROP TABLE IF EXISTS {}.{}'''.format(
     utils.STAGING_DB, utils.TABLE_NAME_3))
 
+# SQL query for checking the last time (id) the tables have been updated
+identify_max_id_order_items_table = (
+    '''SELECT id FROM {}.{} ORDER BY id DESC LIMIT 1'''.format(
+        utils.STAGING_DB, utils.TABLE_NAME_1))
+identify_max_id_late_fee_table = (
+    '''SELECT MAX(id) FROM {}.{} ORDER BY id DESC LIMIT 1'''.format(
+        utils.STAGING_DB, utils.TABLE_NAME_2))
+identify_max_id_merchant_table = (
+    '''SELECT MAX(id) FROM {}.{} ORDER BY id DESC LIMIT 1'''.format(
+        utils.STAGING_DB, utils.TABLE_NAME_3))
+
 # SQL query for creating table(s) IF NOT EXISTS
 create_order_items_table = ('''
 CREATE TABLE {}.{} (
+      id BIGINT NOT NULL,
       order_id VARCHAR(36) NOT NULL,
       item_name VARCHAR(255) NULL,
       quantity INT NULL,
@@ -31,6 +43,7 @@ CREATE TABLE {}.{} (
 
 create_late_fee_table = ('''
 CREATE TABLE {}.{} (
+      id BIGINT NOT NULL,
       order_id VARCHAR(36) NOT NULL,
       payment_id VARCHAR(36) NULL,
       amount FLOAT NULL,
@@ -40,18 +53,21 @@ CREATE TABLE {}.{} (
 
 create_merchant_table = ('''
 CREATE TABLE {}.{} (
+      id BIGINT NOT NULL,
       order_id VARCHAR(36) NOT NULL,
       merchant_id VARCHAR(36) NULL,
-      merchant_name VARCHAR(100) NULL)
+      merchant_name VARCHAR(100) NULL,
+      event_name VARCHAR(100) NULL,
+      created_at DATETIME NULL)
       '''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # SQL query Dumping data for the table
 insert_data_into_order_items_tbl = ('''
-    INSERT INTO {}.{} (order_id, item_name, quantity, status, created_at, event_name)
-    SELECT order_items_table.*, order_events_table.created_at, order_events_table.event_name
+    INSERT INTO {}.{} (id, order_id, item_name, quantity, status, created_at, event_name)
+    SELECT id, order_items_table.*, order_events_table.created_at, order_events_table.event_name
     FROM (
-            SELECT JSON_UNQUOTE(payload) AS payload, created_at, CAST(event_name  AS CHAR(100)) AS event_name
-            FROM {}.{}) AS order_events_table,
+            SELECT id, JSON_UNQUOTE(payload) AS payload, created_at, CAST(event_name  AS CHAR(100)) AS event_name
+            FROM {}.{} WHERE id > 0) AS order_events_table,
     JSON_TABLE
             (
                 JSON_UNQUOTE(payload), '$' COLUMNS
@@ -70,21 +86,39 @@ insert_data_into_order_items_tbl = ('''
                utils.SOURCE_TABLE))
 
 insert_data_into_late_fee_tbl = ('''
-    INSERT INTO {}.{} (order_id, payment_id, amount, currency, recorded_at)
+    INSERT INTO {}.{} (id, order_id, payment_id, amount, currency, recorded_at)
     SELECT
+        id,
         CAST(REPLACE(JSON_EXTRACT(JSON_UNQUOTE(payload), '$.order_id'), '"', '') AS CHAR(36)) AS order_id,
         CAST(REPLACE(JSON_EXTRACT(JSON_UNQUOTE(payload), '$.payment_id'), '"', '')AS CHAR(36)) AS payment_id,
         CAST(JSON_EXTRACT(JSON_UNQUOTE(payload), '$.late_fee_amount.amount')AS FLOAT) AS late_fee_amount,
         CAST(REPLACE(JSON_EXTRACT(JSON_UNQUOTE(payload), '$.late_fee_amount.currency'), '"', '') AS CHAR(3)) AS late_fee_currency,
         CAST(JSON_EXTRACT(JSON_UNQUOTE(payload), '$.recorded_at') AS DATETIME) AS recorded_at
     FROM {}.{}
-    WHERE payload LIKE '%late%fee%amount%'
+    WHERE id > 0 AND payload LIKE '%late%fee%amount%'
     '''.format(utils.STAGING_DB, utils.TABLE_NAME_2, utils.SOURCE_DB,
                utils.SOURCE_TABLE))
 
 insert_data_into_merchant_tbl = ('''
-    INSERT INTO {}.{} (order_id, merchant_id, merchant_name)
-    SELECT DISTINCT(order_id), t1.*
+    INSERT INTO {}.{} (id, order_id, merchant_id, merchant_name, event_name, created_at)
+    SELECT DISTINCT A1.id, A1.order_id, merchant_id, merchant_name, event_name, A1.created_at
+    FROM
+    (
+        SELECT t2.id, t2.order_id, t1.event_id, event_name, t2.created_at
+        FROM {}.{} AS t1
+        JOIN (
+            SELECT order_id, MAX(created_at) AS created_at, MAX(id) AS id
+            FROM {}.{} WHERE id > 0 GROUP BY order_id
+            ) AS t2
+        ON
+        t1.id = t2.id
+    ) A1
+
+    LEFT JOIN
+    (
+    SELECT t3.id, order_id, merchant_id, merchant_name, created_at
+    FROM
+    (SELECT id, order_id, t1.*
     FROM {}.{}, JSON_TABLE
             (
                 JSON_UNQUOTE(payload), '$' COLUMNS
@@ -93,8 +127,17 @@ insert_data_into_merchant_tbl = ('''
                         merchant_name VARCHAR(255) PATH '$.merchant_name'
                     )
             ) AS t1
-            WHERE t1.merchant_name IS NOT NULL AND t1.merchant_id IS NOT NULL
+            WHERE t1.merchant_name IS NOT NULL AND t1.merchant_id IS NOT NULL AND id > 0) AS t3
+    NATURAL JOIN
+    (SELECT
+        JSON_UNQUOTE(payload) AS payload, order_id, created_at
+        FROM {}.{}) AS t4
+        WHERE t3.order_id = t4.order_id) AS B1
+        
+    ON A1.order_id = B1.order_id AND A1.created_at = B1.created_at
 '''.format(utils.STAGING_DB, utils.TABLE_NAME_3, utils.SOURCE_DB,
+           utils.SOURCE_TABLE, utils.SOURCE_DB, utils.SOURCE_TABLE,
+           utils.SOURCE_DB, utils.SOURCE_TABLE, utils.SOURCE_DB,
            utils.SOURCE_TABLE))
 
 # 1. SQL query to answer for Business questions 1
@@ -156,92 +199,76 @@ b2_1 = ('''
 # 3. SQL query to answer for Business questions 3
 # 3.1 Top 10 merchants who have most new order value by day
 b3_1 = ('''
-    SELECT merchant_id, merchant_name, COUNT(event_name) AS new_order_total, DATE(created_at) AS date
-    FROM
-    (SELECT * FROM {}.{} t1 NATURAL JOIN {}.{} t2 WHERE t1.order_id = t2.order_id) as t3
-    WHERE event_name LIKE '%OrderWasCreated%'
-    GROUP BY merchant_name, merchant_id, DATE(created_at)
-    ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
-                       utils.TABLE_NAME_3))
+    SELECT merchant_name, COUNT(merchant_id) AS new_order_value
+    FROM {}.{}
+    WHERE DATE(created_at) = '2020-10-20'
+    GROUP BY merchant_name
+    ORDER BY COUNT(merchant_id) DESC
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # 3.2 Top 10 merchants who have most new order value by month
 b3_2 = ('''
-    SELECT merchant_id, merchant_name, COUNT(event_name) AS new_order_total, MONTH(created_at) AS month
-    FROM
-    (SELECT * FROM {}.{} t1 NATURAL JOIN {}.{} t2 WHERE t1.order_id = t2.order_id) as t3
-    WHERE event_name LIKE '%OrderWasCreated%'
-    GROUP BY merchant_name, merchant_id, MONTH(created_at)
-    ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
-                       utils.TABLE_NAME_3))
+    SELECT merchant_name, COUNT(merchant_id) AS new_order_value
+    FROM {}.{}
+    WHERE MONTH(created_at) = 10
+    GROUP BY merchant_name
+    ORDER BY COUNT(merchant_id) DESC
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # 3.3 Top 10 merchants who have most new order value by quarter
 b3_3 = ('''
-    SELECT merchant_id, merchant_name, COUNT(event_name) AS new_order_total, QUARTER(created_at) AS quarter
-    FROM
-    (SELECT * FROM {}.{} t1 NATURAL JOIN {}.{} t2 WHERE t1.order_id = t2.order_id) as t3
-    WHERE event_name LIKE '%OrderWasCreated%'
-    GROUP BY merchant_name, merchant_id, QUARTER(created_at)
-    ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
-                       utils.TABLE_NAME_3))
+    SELECT merchant_name, COUNT(merchant_id) AS new_order_value
+    FROM {}.{}
+    WHERE QUARTER(created_at) = 4
+    GROUP BY merchant_name
+    ORDER BY COUNT(merchant_id) DESC
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # 3.4 Top 10 merchants who have most new order value by year
 b3_4 = ('''
-    SELECT merchant_id, merchant_name, COUNT(event_name) as new_order_total, YEAR(created_at) AS year
-    FROM
-    (SELECT * FROM {}.{} t1 NATURAL JOIN {}.{} t2 WHERE t1.order_id = t2.order_id) as t3
-    WHERE event_name LIKE '%OrderWasCreated%'
-    GROUP BY merchant_name, merchant_id, YEAR(created_at)
-    ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
-                       utils.TABLE_NAME_3))
+    SELECT merchant_name, COUNT(merchant_id) AS new_order_value
+    FROM {}.{}
+    WHERE YEAR(created_at) = 2020
+    GROUP BY merchant_name
+    ORDER BY COUNT(merchant_id) DESC
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # 4. SQL query to answer for Business questions 4
 # 4.1 Top 10 merchants who have most canceled order value by day
 b4_1 = ('''
-    SELECT merchant_name, COUNT(event_name) AS canceled_order_total, DATE(created_at) AS date
-    FROM
-    (SELECT * FROM {}.{} t1 NATURAL JOIN {}.{} t2 WHERE t1.order_id = t2.order_id) AS t3
-    WHERE event_name LIKE '%OrderWasCanceled%'
-    GROUP BY merchant_name, DATE(created_at)
+    SELECT merchant_name, COUNT(event_name) AS canceled_order_total
+    FROM {}.{}
+    WHERE event_name LIKE '%OrderWasCanceled%' OR event_name LIKE '%OrderWasResolved%' AND DATE(created_at) = '2020-09-30'
+    GROUP BY merchant_name
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
-                       utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # 4.2 Top 10 merchants who have most canceled order value by month
 b4_2 = ('''
-    SELECT merchant_name, COUNT(event_name) AS canceled_order_total, MONTH(created_at) AS month
-    FROM
-    (SELECT * FROM {}.{} t1 NATURAL JOIN {}.{} t2 WHERE t1.order_id = t2.order_id) AS t3
-    WHERE event_name LIKE '%OrderWasCanceled%'
-    GROUP BY merchant_name, MONTH(created_at)
+    SELECT merchant_name, COUNT(event_name) AS canceled_order_total
+    FROM {}.{}
+    WHERE event_name LIKE '%OrderWasCanceled%' OR event_name LIKE '%OrderWasResolved%' AND MONTH(created_at) = 9
+    GROUP BY merchant_name
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
-                       utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # 4.3 Top 10 merchants who have most canceled order value by quarter
 b4_3 = ('''
-    SELECT merchant_name, COUNT(event_name) AS canceled_order_total, QUARTER(created_at) AS quarter
-    FROM
-    (SELECT * FROM {}.{} t1 NATURAL JOIN {}.{} t2 WHERE t1.order_id = t2.order_id) AS t3
-    WHERE event_name LIKE '%OrderWasCanceled%'
-    GROUP BY merchant_name, QUARTER(created_at)
+    SELECT merchant_name, COUNT(event_name) AS canceled_order_total
+    FROM {}.{}
+    WHERE event_name LIKE '%OrderWasCanceled%' OR event_name LIKE '%OrderWasResolved%' AND QUARTER(created_at) = 3
+    GROUP BY merchant_name
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
-                       utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # 4.4 Top 10 merchants who have most canceled order value by year
 b4_4 = ('''
-    SELECT merchant_name, COUNT(event_name) AS canceled_order_total, YEAR(created_at) AS year
-    FROM
-    (SELECT * FROM {}.{} t1 NATURAL JOIN {}.{} t2 WHERE t1.order_id = t2.order_id) AS t3
-    WHERE event_name LIKE '%OrderWasCanceled%'
-    GROUP BY merchant_name, YEAR(created_at)
+    SELECT merchant_name, COUNT(event_name) AS canceled_order_total
+    FROM {}.{}
+    WHERE event_name LIKE '%OrderWasCanceled%' OR event_name LIKE '%OrderWasResolved%' AND YEAR(created_at) = 2020
+    GROUP BY merchant_name
     ORDER BY COUNT(event_name) DESC
-    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_1, utils.STAGING_DB,
-                       utils.TABLE_NAME_3))
+    LIMIT 10'''.format(utils.STAGING_DB, utils.TABLE_NAME_3))
 
 # 5. SQL query to answer for Business questions 5
 # 5.1 Total late fee amount collected by day
@@ -278,10 +305,10 @@ b5_4 = ('''
 
 # INIT
 keys_init = [utils.TABLE_NAME_1, utils.TABLE_NAME_2, utils.TABLE_NAME_3]
-values_init = [
-    insert_data_into_order_items_tbl, insert_data_into_late_fee_tbl,
-    insert_data_into_merchant_tbl
-]
+values_init = [[
+    identify_max_id_order_items_table, insert_data_into_order_items_tbl
+], [identify_max_id_late_fee_table, insert_data_into_late_fee_tbl],
+               [identify_max_id_merchant_table, insert_data_into_merchant_tbl]]
 query_dict_init = dict(zip(keys_init, values_init))
 
 # BQ-01

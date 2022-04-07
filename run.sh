@@ -14,4 +14,4 @@ mkdir -p output
 docker exec mydb mysqldump -u root --password=root tamara_staging > output/tamara_staging.sql
 
 echo "Stopping the containers"
-docker-compose down 
+# docker-compose down 

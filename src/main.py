@@ -19,6 +19,30 @@ class DBHelper():
         # connect with mysql, create database and tables
         utils.db_setup_init(queries)
 
+    def db_incremental_update_check(self, query, config):
+        # query/select/insert data from database
+        print(query)
+        cnx = mysql.connector.connect(**config)
+        cursor = cnx.cursor()
+        cursor.execute(query)
+        if cursor.with_rows:
+            _temp = [item[0] for item in cursor.fetchall()]
+            print(_temp)
+            if _temp:
+                if _temp[0]:
+                    id_max = _temp[0]
+                else:
+                    id_max = 0
+            else:
+                id_max = 0
+        else:
+            id_max = 0
+
+        cursor.close()
+        cnx.close()
+
+        return id_max
+
     def db_insert(self, query, config):
         # query/select/insert data from database
         utils.db_write(query, config)
@@ -43,11 +67,15 @@ class DBHelper():
 # main coding
 helper = DBHelper()
 
-# Dumping data for `order_items` & `late_fee` table
-# import pdb; pdb.set_trace()
+# Dumping data for order_item_main_infos, order_late_fee_infos, and order_merchant_infos table
 for table_name, _query in queries.query_dict_init.items():
-    print(f"Begin insert data into {table_name}")
-    helper.db_insert(_query, utils.DB_config['staging'])
+    # import pdb; pdb.set_trace()
+    print(f"Begin check {table_name} table")
+    id_max = helper.db_incremental_update_check(_query[0],
+                                                utils.DB_config['staging'])
+    print(f"Begin insert data into {table_name} table from id = {id_max}")
+    helper.db_insert(_query[1].replace("id > 0", f"id > {id_max}"),
+                     utils.DB_config['staging'])
     print(f"Successfully insert data into {table_name}")
 
 # Answer for Business questions 1
@@ -70,9 +98,7 @@ date_time = ["day", "month", "quarter", "year"]
 i = 0
 for _name, _query in queries.query_dict_bq3.items():
     print(f"\n{_name}")
-    headers = [
-        'merchant_id', 'merchant_name', 'new_order_day', f'{date_time[i]}'
-    ]
+    headers = ['merchant_name', 'new_order_value']
     helper.db_fetchall(_query, utils.DB_config['staging'], headers)
     i += 1
 
@@ -81,7 +107,7 @@ date_time = ["day", "month", "quarter", "year"]
 i = 0
 for _name, _query in queries.query_dict_bq4.items():
     print(f"\n{_name}")
-    headers = ['merchant_name', 'canceled_order_total', f'{date_time[i]}']
+    headers = ['merchant_name', 'canceled_order_total']
     helper.db_fetchall(_query, utils.DB_config['staging'], headers)
     i += 1
 

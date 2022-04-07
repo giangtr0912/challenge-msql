@@ -4,6 +4,14 @@ import mysql.connector
 import MySQLdb
 from mysql.connector import errorcode
 
+# docker container_name: Production
+DB_HOST = 'mydb'
+
+# Local  run: Development
+# DB_HOST = 'localhost'
+
+DB_PORT = '3306'
+
 SOURCE_DB = 'tamara'
 TEST_DB = 'tamara_test'
 STAGING_DB = 'tamara_staging'
@@ -18,35 +26,35 @@ TABLE_NAME_3 = 'order_merchant_infos'
 docker_db_config_init = {
     'user': 'root',
     'password': 'root',
-    'host': 'mydb',
-    'port': '3306',
-    'database': '{}'.format(SOURCE_DB)
+    'host': f'{DB_HOST}',
+    'port': f'{DB_PORT}',
+    'database': f'{SOURCE_DB}'
 }
 
 # database config init
 target_db_config_init = {
     'user': 'root',
     'password': 'root',
-    'host': 'mydb',
-    'port': '3306'
+    'host': f'{DB_HOST}',
+    'port': f'{DB_PORT}'
 }
 
 # target db
 target_db_staging_config = {
     'user': 'root',
     'password': 'root',
-    'host': 'mydb',
-    'port': '3306',
-    'database': '{}'.format(STAGING_DB)
+    'host': f'{DB_HOST}',
+    'port': f'{DB_PORT}',
+    'database': f'{STAGING_DB}'
 }
 
 # source db
 target_db_production_config = {
     'user': 'root',
     'password': 'root',
-    'host': 'mydb',
-    'port': '3306',
-    'database': '{}'.format(PRODUCTION_DB)
+    'host': f'{DB_HOST}',
+    'port': f'{DB_PORT}',
+    'database': f'{PRODUCTION_DB}'
 }
 
 # database config init
@@ -54,8 +62,8 @@ test_db_config = {
     'user': 'root',
     'password': 'root',
     'host': 'mydb',
-    'port': '3306',
-    'database': '{}'.format(TEST_DB)
+    'port': f'{DB_PORT}',
+    'database': f'{TEST_DB}'
 }
 
 DB_config = {
@@ -78,13 +86,13 @@ def db_setup_init(queries, config=DB_config):
         cursor.execute(f"USE {config['staging']['database']}")
 
         # delete then create tables in staging database: order_items & late_fee
-        cursor.execute(queries.delete_order_items_table)
+        # cursor.execute(queries.delete_order_items_table)
         cursor.execute(queries.create_order_items_table)
 
-        cursor.execute(queries.delete_late_fee_table)
+        # cursor.execute(queries.delete_late_fee_table)
         cursor.execute(queries.create_late_fee_table)
 
-        cursor.execute(queries.delete_merchant_table)
+        # cursor.execute(queries.delete_merchant_table)
         cursor.execute(queries.create_merchant_table)
 
         # create production database: tamara_prod
