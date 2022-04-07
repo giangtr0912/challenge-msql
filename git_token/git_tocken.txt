@@ -1,0 +1,2 @@
+docker: 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
+git remote set-url origin https://github.com/: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@github.com/giangtr0912/challenge-msql.git

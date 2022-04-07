@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+echo "Do cleaning before start the app"
 if docker ps -q --filter "name=mydb" | grep -q .; then docker stop mydb && docker rm -fv mydb; fi
 if docker ps -q --filter "name=app" | grep -q .; then docker stop app && docker rm -fv app; fi
 
@@ -14,4 +15,4 @@ mkdir -p output
 docker exec mydb mysqldump -u root --password=root tamara_staging > output/tamara_staging.sql
 
 echo "Stopping the containers"
-# docker-compose down 
+docker-compose down

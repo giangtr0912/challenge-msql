@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Aim: Tamara Data Engineer Coding Challenge
+Run command:
+        $ python src/main.py
+"""
+
+__author__      = "Giang Tran"
+__copyright__   = "Copyright 2022, Tamara"
+__credits__ = ["Giang Tran"]
+__license__ = "GPL"
+__version__ = "1.0.1"
+__maintainer__ = "Giang Tran"
+__email__ = "giangde0912@gmail.com"
+__status__ = "Production"
 
 import os
 import sys
@@ -69,7 +85,6 @@ helper = DBHelper()
 
 # Dumping data for order_item_main_infos, order_late_fee_infos, and order_merchant_infos table
 for table_name, _query in queries.query_dict_init.items():
-    # import pdb; pdb.set_trace()
     print(f"Begin check {table_name} table")
     id_max = helper.db_incremental_update_check(_query[0],
                                                 utils.DB_config['staging'])
